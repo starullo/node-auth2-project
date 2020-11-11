@@ -1,6 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../data/config');
+const jwt = require('jsonwebtoken');
+require('dotenv').config()
 
 const router = express.Router();
 
@@ -33,6 +35,38 @@ router.post('/register', verifyNewUser, (req, res, next)=>{
     .catch(err=>{
         res.status(500).json({message: err.message})
     })
+})
+
+router.post('/login', async (req, res, next)=>{
+    try {
+        const {username, password} = req.body;
+        const [user] = await db('users').where({username})
+        if (!user) {
+            res.status(401).json({
+                message: 'invalid username'
+            })
+        }
+        const passwordValid = await bcrypt.compare(password, user.password)
+
+        if (!passwordValid) {
+            res.status(401).json({
+                message: 'incorrect password'
+            })
+        }
+
+        const token = jwt.sign({
+            userId: user.id,
+            userRole: 'admin'
+        }, process.env.SECRETSTRING)
+
+        res.status(200).json({
+            message: 'welcome back ' + user.username,
+            token
+        })
+
+    } catch (err) {
+        next({code: 500, message: err.message})
+    }
 })
 
 router.use((err, req, res, next)=>{
